@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import asyncio
 from platform import system as sys_ver
 from asyncio import create_subprocess_shell as run
@@ -72,7 +74,7 @@ if __name__ == "__main__":
     with open('data/passwords.txt', "r", encoding="utf-8") as password_data:
         passwords = password_data.read().splitlines()
 
-    # END WARS
+    # END VARs
 
     loop = asyncio.get_event_loop()
     future = asyncio.ensure_future(start())
