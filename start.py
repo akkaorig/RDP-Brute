@@ -36,38 +36,43 @@ async def connect(sem, ip, user, password):
                 good += 1
                 rez = f'{ip}:{port};{user}:{password}\n'
                 open('rez/good.txt', 'a', encoding='utf-8').write(rez)
-        except asyncio.TimeoutError:
+
             a.kill()
-            return
         except:
+            a.kill()
+        finally:
             return
+
+
+async def process(ar):
+    await asyncio.gather(*ar)
 
 
 async def start():
     tasks = []
     sem = asyncio.Semaphore(threads)
 
-    with open('data/ip.txt', "r", encoding="utf-8") as ips:
-        with open('data/users.txt', "r", encoding="utf-8") as users:
+    with open('data/users.txt', "r", encoding="utf-8") as users:
+        for user in users:
             with open('data/passwords.txt', "r", encoding="utf-8") as passws:
-                for user in users:
-                    user = user.replace('\n', '')
-                    for passw in passws:
-                        passw = passw.replace('\n', '')
+                for passw in passws:
+                    with open('data/ip.txt', "r", encoding="utf-8") as ips:
                         for ip in ips:
-                            ip = ip.replace('\n', '')
-                            task = asyncio.ensure_future(
-                                                         connect(sem,
-                                                                 ip,
-                                                                 user,
-                                                                 passw
-                                                                 )
-                                                        )
-                            tasks.append(task)
-
-        responses = asyncio.gather(*tasks)
-
-        await responses
+                            if len(tasks) != threads:
+                                user = user.replace('\n', '')
+                                passw = passw.replace('\n', '')
+                                ip = ip.replace('\n', '')
+                                task = asyncio.create_task(
+                                                            connect(sem,
+                                                                    ip,
+                                                                    user,
+                                                                    passw
+                                                                    )
+                                                            )
+                                tasks.append(task)
+                            else:
+                                await process(tasks)
+                                tasks = []
 
 
 if __name__ == "__main__":
