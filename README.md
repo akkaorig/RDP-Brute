@@ -2,6 +2,8 @@
 FreeRDP - as main component
 
 # Installation
+### PIP:
+```pip install asyncio aiofiles```
 ### For Linux:
 - Install xFreeRDP: ```sudo apt-get update -y && sudo apt-get install freerdp-x11 -y```
 
