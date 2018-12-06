@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
+import aiofiles
 from platform import system as sys_ver
 from asyncio import create_subprocess_shell as run
 from asyncio.subprocess import DEVNULL
@@ -35,7 +36,9 @@ async def connect(sem, ip, user, password):
             if a.returncode == 0:
                 good += 1
                 rez = f'{ip}:{port};{user}:{password}\n'
-                open('rez/good.txt', 'a', encoding='utf-8').write(rez)
+                async with aiofiles.open(f'good.txt', 'a', encoding='utf-8',
+                                         errors='ignore') as f:
+                    await f.write(rez)
 
             a.kill()
         except:
